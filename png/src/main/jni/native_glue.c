@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "rwpng.h"
-#include "pngquant.h"
+#include "pngquant/rwpng.h"
+#include "pngquant/pngquant.h"
 
 #define  LOG_TAG    "LibPngQuantizer"
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
@@ -28,16 +28,16 @@ JNIEXPORT jboolean JNICALL Java_com_nicdahlquist_pngquant_LibPngQuant_nativePngQ
     struct pngquant_options options = {
         .floyd = jFloyd, // floyd-steinberg dithering
     };
-    options.liq = liq_attr_create();
-
+    liq_attr *liq = liq_attr_create();
     options.verbose = true;
-    liq_set_quality(options.liq, jMinQuality, jMaxQuality);
-    liq_set_speed(options.liq, jSpeed);
-    liq_set_log_callback(options.liq, log_callback, NULL);
+    liq_set_quality(liq, jMinQuality, jMaxQuality);
+    liq_set_speed(liq, jSpeed);
+    liq_set_log_callback(liq, log_callback, NULL);
     options.log_callback = log_callback;
 
-    pngquant_file(inFilename, outFilename, &options);
-
+    pngquant_file_internal(inFilename, outFilename, &options, liq);
+    
+    liq_attr_destroy(liq);
     (*env)->ReleaseStringUTFChars(env, jInFilename, inFilename);
     (*env)->ReleaseStringUTFChars(env, jOutFilename, outFilename);
 

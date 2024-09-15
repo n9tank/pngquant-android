@@ -1,0 +1,7 @@
+pngquant/lib/libimagequant.c
+pngquant/lib/blur.c
+pngquant/lib/mediancut.c
+pngquant/lib/mempool.c
+pngquant/lib/nearest.c
+pngquant/lib/pam.c
+pngquant/lib/kmeans.c

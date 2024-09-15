@@ -4,7 +4,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPNG_ARM_NEON_OPT=0 -O3")
 
 add_library(pngquant SHARED
     native_glue.c
-    pngquant.c
 
     libpng-android/jni/png.c
     libpng-android/jni/pngerror.c
@@ -16,21 +15,25 @@ add_library(pngquant SHARED
     libpng-android/jni/pngrtran.c
     libpng-android/jni/pngrutil.c
     libpng-android/jni/pngset.c
-    libpng-android/jni/pngtest.c
+    #libpng-android/jni/pngtest.c
     libpng-android/jni/pngtrans.c
     libpng-android/jni/pngwio.c
     libpng-android/jni/pngwrite.c
     libpng-android/jni/pngwtran.c
     libpng-android/jni/pngwutil.c
-
+    
+    pngquant/pngquant.c
+    pngquant/pngquant_opts.c
     pngquant/rwpng.c
-    pngquant/lib/blur.c
-    pngquant/lib/libimagequant.c
-    pngquant/lib/mediancut.c
-    pngquant/lib/mempool.c
-    pngquant/lib/nearest.c
-    pngquant/lib/pam.c
-    pngquant/lib/viter.c
+    
+pngquant/lib/libimagequant.c
+pngquant/lib/remap.c
+pngquant/lib/blur.c
+pngquant/lib/mediancut.c
+pngquant/lib/mempool.c
+pngquant/lib/nearest.c
+pngquant/lib/pam.c
+pngquant/lib/kmeans.c
 )
 
 include_directories(pngquant
