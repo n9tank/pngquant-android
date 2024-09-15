@@ -1,2 +1,4 @@
-libpng-android
-pngquant
+/**.a
+/spng.c
+/spng.h
+/libimagequant.h
