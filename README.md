@@ -1,7 +1,7 @@
 
 ## pngquant-android
 
-[pngquant](https://pngquant.org/) (pngquant_2.18.0 + libimagequant_2.18.0) with basic Java bindings for Android.
+[pngquant](https://pngquant.org/) (pngquant_3.0.3 + libimagequant_4.3.3) with basic Java bindings for Android.
 
 
 In your Android app:

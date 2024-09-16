@@ -55,11 +55,11 @@ use --force to overwrite. See man page for full list of options.\n";
 #endif
 
 #include "rwpng.h"  /* typedefs, common macros, public prototypes */
-#include "lib/libimagequant.h" /* if it fails here, run: git submodule update; ./configure; or add -Ilib to compiler flags */
+#include "lib/libimagequant.h" /* if it fails here, run: git submodule update or add -Ilib to compiler flags */
 #include "pngquant_opts.h"
+#include "pngquant.h"
 
-
-char *PNGQUANT_VERSION = LIQ_VERSION_STRING " (January 2023)";
+char *PNGQUANT_VERSION = LIQ_VERSION_STRING " (January 2022)";
 
 static pngquant_error prepare_output_image(liq_result *result, liq_image *input_image, rwpng_color_transform tag, png8_image *output_image);
 static void set_palette(liq_result *result, png8_image *output_image);
@@ -201,7 +201,7 @@ static bool parse_quality(const char *quality, liq_attr *options, bool *min_qual
 }
 
 pngquant_error pngquant_main_internal(struct pngquant_options *options, liq_attr *liq);
-pngquant_error pngquant_file_internal(const char *filename, const char *outname, struct pngquant_options *options, liq_attr *liq);
+//static pngquant_error pngquant_file_internal(const char *filename, const char *outname, struct pngquant_options *options, liq_attr *liq);
 
 #ifndef PNGQUANT_NO_MAIN
 int main(int argc, char *argv[])
@@ -346,6 +346,16 @@ pngquant_error pngquant_main_internal(struct pngquant_options *options, liq_attr
         }
         liq_result_destroy(tmp_quantize);
     }
+
+#ifdef _OPENMP
+    // if there's a lot of files, coarse parallelism can be used
+    if (options->num_files > 2*omp_get_max_threads()) {
+        omp_set_nested(0);
+        omp_set_dynamic(1);
+    } else {
+        omp_set_nested(1);
+    }
+#endif
 
     unsigned int error_count=0, skipped_count=0, file_count=0;
     pngquant_error latest_error=SUCCESS;

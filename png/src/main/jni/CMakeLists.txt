@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.4.1)
 project(pngquant)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPNG_ARM_NEON_OPT=0 -O3")
 
+add_library(libimagequant STATIC IMPORTED)
+set_target_properties(libimagequant PROPERTIES
+    IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/pngquant/lib/libimagequant_sys.a
+)
+
 add_library(pngquant SHARED
     native_glue.c
 
@@ -26,14 +31,6 @@ add_library(pngquant SHARED
     pngquant/pngquant_opts.c
     pngquant/rwpng.c
     
-pngquant/lib/libimagequant.c
-pngquant/lib/remap.c
-pngquant/lib/blur.c
-pngquant/lib/mediancut.c
-pngquant/lib/mempool.c
-pngquant/lib/nearest.c
-pngquant/lib/pam.c
-pngquant/lib/kmeans.c
 )
 
 include_directories(pngquant
@@ -44,4 +41,5 @@ include_directories(pngquant
 target_link_libraries(pngquant
     log
     z
+    libimagequant
 )
