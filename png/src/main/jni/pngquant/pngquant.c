@@ -55,7 +55,7 @@ use --force to overwrite. See man page for full list of options.\n";
 #endif
 
 #include "rwpng.h"  /* typedefs, common macros, public prototypes */
-#include "lib/libimagequant.h" /* if it fails here, run: git submodule update or add -Ilib to compiler flags */
+#include "libimagequant.h" /* if it fails here, run: git submodule update or add -Ilib to compiler flags */
 #include "pngquant_opts.h"
 #include "pngquant.h"
 
