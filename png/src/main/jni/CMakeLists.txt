@@ -12,11 +12,15 @@ add_library(libimagequant STATIC IMPORTED)
 set_target_properties(libimagequant PROPERTIES
     IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libimagequant_sys.a
 )
+add_library(zlib-ng STATIC IMPORTED)
+set_target_properties(zlib-ng PROPERTIES
+    IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libz.a
+)
 set(SRC jni.c
     spng.c
     spngutil.c)
 set(LIB libimagequant
-    ZLIB::ZLIB)
+    zlib-ng)
 if(CMAKE_SYSTEM_NAME MATCHES "Android")
 list(APPEND SRC
 android_jni.c
@@ -31,7 +35,7 @@ endif()
 add_library(pngquant SHARED
     ${SRC}
 )
-find_package(ZLIB REQUIRED)
+#find_package(ZLIB REQUIRED)
 target_link_libraries(pngquant
 ${LIB}
 )

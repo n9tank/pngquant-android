@@ -38,10 +38,10 @@ static unsigned char *rgb565_rgba(unsigned int page, unsigned short *data)
 		unsigned int g = (rgb565 & 0x7E0);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 		unsigned int c = ((rgb565 & 0xF80) << 16) | ((rgb565 & 0x1f) << 11);
-		rgba[index] = ((c | (c >> 5)) | 0x00FF00FF) & ~(((g << 13) | (g << 11)) & 0x00ff0000);
+		rgba[index] = ((c | (c >> 5)) | 0x00FF00FF) & (((g << 13) | (g << 11)) | 0xFF00FFFF);
 #else
 		unsigned int c = ((rgb565 & 0xF80) >> 8) | ((rgb565 & 0x1f) << 19);
-		rgba[index] = ((c | (c >> 5)) | 0xFF00FF00) & ~(((g << 7) | (g << 5)) & 0x0000ff00);
+		rgba[index] = ((c | (c >> 5)) | 0xFF00FF00) & (((g << 5) | (g << 3)) | 0xFFFF00FF);
 #endif
 	}
 	return (unsigned char *)rgba;
