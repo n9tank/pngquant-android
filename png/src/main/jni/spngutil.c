@@ -19,45 +19,52 @@ void *spng_encode(size_t *size, FILE *fp, unsigned char *buff, const liq_palette
 		struct spng_plte ple;
 		struct spng_trns trns;
 		unsigned char map[256];
-		struct spng_plte_entry *pale = (struct spng_plte_entry *)pal->entries;
 		unsigned int num = pal->count;
 		ple.n_entries = num;
-		unsigned char *alps = trns.type3_alpha;
-		struct spng_plte_entry *pleen = ple.entries;
 		unsigned int ts = 0;
-		for (unsigned int i= 0; i < num; i++)
+		uint8_t bool = 0;
+		for (unsigned int i = 0; i < num; i++)
 		{
-			struct spng_plte_entry lc = pale[i];
-			uint8_t alp = lc.alpha;
-			if (alp < 255)
+			struct spng_plte_entry lptr = ((struct spng_plte_entry *)pal->entries)[i];
+			if (lptr.alpha != 255)
 			{
+				bool |= i != ts;
 				map[i] = ts;
-				pleen[ts] = lc;
-				alps[ts++] = alp;
+				ple.entries[ts] = lptr;
+				trns.type3_alpha[ts++] = lptr.alpha;
 			}
 		}
 		trns.n_type3_entries = ts;
-		for (unsigned int i = 0; i < num; i++)
+		struct spng_plte *pleptr;
+		if (bool)
 		{
-			struct spng_plte_entry lc = pale[i];
-			if (lc.alpha >= 255)
+			for (unsigned int i = 0; i < num; i++)
 			{
-				map[i] = ts;
-				pleen[ts++] = lc;
+				struct spng_plte_entry lptr = ((struct spng_plte_entry *)pal->entries)[i];
+				if (lptr.alpha == 255)
+				{
+					map[i] = ts;
+					ple.entries[ts++] = lptr;
+				}
 			}
+			pleptr = &ple;
 		}
-		spng_set_plte(ctx, &ple);
+		else
+			pleptr = (struct spng_plte *)pal;
+		spng_set_plte(ctx, pleptr);
 		if (trns.n_type3_entries)
 			spng_set_trns(ctx, &trns);
-			//如果不设置调色板的话，它不生效
-		for (unsigned int i = 0, num = w * h; i < num; i++)
+		if (bool)
 		{
-			buff[i] = map[buff[i]];
+			for (unsigned int i = 0, num = w * h; i < num; i++)
+			{
+				buff[i] = map[buff[i]];
+			}
 		}
 	}
 	else
 		spng_set_plte(ctx, (struct spng_plte *)pal);
-	if(spng_encode_image(ctx, buff, w * h, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE))
+	if (spng_encode_image(ctx, buff, w * h, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE))
 		goto gc;
 	if (!fp)
 	{
