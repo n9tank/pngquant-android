@@ -46,35 +46,15 @@ static unsigned char *rgb565_rgba(unsigned int page, unsigned short *data)
 	}
 	return (unsigned char *)rgba;
 }
-typedef struct liq_out_attr
-{
-	jint w;
-	jint h;
-	jfloat jfloyd;
-} liq_out_attr;
 JNIEXPORT jlong JNICALL Java_org_pngquant_attr(JNIEnv *env, jclass obj, jint jMinQuality, jint jMaxQuality, jint jSpeed)
 {
 	liq_attr *liq = liq_attr_create();
 	if (liq == NULL)
 	{
-		(*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"), NULL);
 		return 0;
 	}
 	liq_set_quality(liq, jMinQuality, jMaxQuality);
 	liq_set_speed(liq, jSpeed);
-	return (jlong)liq;
-}
-JNIEXPORT jlong JNICALL Java_org_pngquant_pngAttr(JNIEnv *env, jclass obj, jint w, jint h, jint mode, jfloat jfloyd)
-{
-	liq_out_attr *liq = malloc(sizeof(liq_out_attr));
-	if (liq == NULL)
-	{
-		(*env)->ThrowNew(env, (*env)->FindClass(env, "java/lang/OutOfMemoryError"), NULL);
-		return 0;
-	}
-	liq->jfloyd = jfloyd;
-	liq->w = w;
-	liq->h = h;
 	return (jlong)liq;
 }
 static void *liq_opt_encode(size_t *size, FILE *fp, liq_image *input_image, liq_attr *liq, unsigned int w, unsigned int h, float jfloyd, unsigned int color)
@@ -87,10 +67,13 @@ static void *liq_opt_encode(size_t *size, FILE *fp, liq_image *input_image, liq_
 		liq_set_dithering_level(quantization_result, jfloyd);
 		size_t pixels_size = w * h;
 		unsigned char *raw_8bit_pixels = malloc(pixels_size);
-		liq_write_remapped_image(quantization_result, input_image, raw_8bit_pixels, pixels_size);
-		const liq_palette *palette = liq_get_palette(quantization_result);
-		buf = spng_encode(size, fp, raw_8bit_pixels, palette, w, h, color);
-		free(raw_8bit_pixels);
+		if (raw_8bit_pixels)
+		{
+			liq_write_remapped_image(quantization_result, input_image, raw_8bit_pixels, pixels_size);
+			const liq_palette *palette = liq_get_palette(quantization_result);
+			buf = spng_encode(size, fp, raw_8bit_pixels, palette, w, h, color);
+			free(raw_8bit_pixels);
+		}
 	}
 	if (quantization_result)
 	{
@@ -99,99 +82,114 @@ static void *liq_opt_encode(size_t *size, FILE *fp, liq_image *input_image, liq_
 	liq_image_destroy(input_image);
 	return buf;
 }
-jbyteArray liq_opt(JNIEnv *env, unsigned char *byte, liq_attr *liq, liq_out_attr *liqout, unsigned int color)
+jbyteArray tobyte(JNIEnv *env, void *encode, int jsize)
 {
 	jbyteArray arr = NULL;
-	unsigned int w = liqout->w;
-	unsigned int h = liqout->h;
+	if (encode)
+	{
+		arr = (*env)->NewByteArray(env, jsize);
+		if (arr)
+		{
+			(*env)->SetByteArrayRegion(env, arr, 0, jsize, encode);
+		}
+		free(encode);
+	}
+	return arr;
+}
+jbyteArray liq_opt(JNIEnv *env, unsigned char *byte, liq_attr *liq, unsigned int w, unsigned h, float jfloyd, unsigned int color)
+{
 	liq_image *img = liq_image_create_rgba(liq, byte, w, h, 0);
 	if (img)
 	{
 		size_t size;
-		void *encode = liq_opt_encode(&size, NULL, img, liq, w, h, liqout->jfloyd, color);
-		if (encode)
-		{
-			int jsize = size;
-			arr = (*env)->NewByteArray(env, jsize);
-			if (arr)
-			{
-				(*env)->SetByteArrayRegion(env, arr, 0, jsize, (void *)encode);
-			}
-			free(encode);
-		}
+		void *encode = liq_opt_encode(&size, NULL, img, liq, w, h, jfloyd, color);
+		return tobyte(env, encode, size);
 	}
-	return arr;
+	return NULL;
 }
-JNIEXPORT jbyteArray JNICALL Java_org_pngquant_intEn(JNIEnv *env, jclass obj, jintArray src, jlong attr, jlong outattr)
+//编码完成后请丢弃像素管道（这是为了性能）
+JNIEXPORT jbyteArray JNICALL Java_org_pngquant_intEn(JNIEnv *env, jclass obj, jintArray src, jlong attr, jint w, jint h, jfloat jfloyd)
 {
-	jint *in = (*env)->GetIntArrayElements(env, src, 0);
-	if (in == NULL)
-		return 0;
-	liq_out_attr *out = (liq_out_attr *)outattr;
-	unsigned int page = out->w * out->h;
-	unsigned char *byte = (unsigned char *)in;
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	argb_rgba(page, in);
-#else
-	bgra_rgba(page << 2, byte);
-#endif
-	liq_attr *liq = (liq_attr *)attr;
-	jbyteArray outbytes = liq_opt(env, byte, liq, out, 8888);
-	liq_attr_destroy(liq);
-	free(out);
-	(*env)->ReleasePrimitiveArrayCritical(env, src, in, JNI_ABORT);
-	return outbytes;
-}
-JNIEXPORT jbyteArray JNICALL Java_org_pngquant_shortEn(JNIEnv *env, jclass obj, jshortArray src, jlong attr, jlong outattr)
-{
-	jshort *in = (*env)->GetShortArrayElements(env, src, 0);
-	if (in == NULL)
-		return 0;
-	liq_out_attr *out = (liq_out_attr *)outattr;
-	unsigned char *rgba = rgb565_rgba(out->w * out->h, (unsigned short *)in);
-	(*env)->ReleasePrimitiveArrayCritical(env, src, in, JNI_ABORT);
-	//这个接口很鸡肋，建议用intEn
 	jbyteArray outbytes = NULL;
 	liq_attr *liq = (liq_attr *)attr;
-	if (rgba)
+	if (liq)
 	{
-		outbytes = liq_opt(env, rgba, liq, out, 565);
-		free(rgba);
+		jint *in = (*env)->GetPrimitiveArrayCritical(env, src, 0);
+		if (in)
+		{
+			unsigned int page = w * h;
+			unsigned char *byte = (unsigned char *)in;
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+			argb_rgba(page, in);
+#else
+			bgra_rgba(page << 2, byte);
+#endif
+			size_t size = 0;
+			void *encode = NULL;
+			liq_image *img = liq_image_create_rgba(liq, byte, w, h, 0);
+			if (img)
+				encode = liq_opt_encode(&size, NULL, img, liq, w, h, jfloyd, 8888);
+			(*env)->ReleasePrimitiveArrayCritical(env, src, in, JNI_ABORT);
+			outbytes = tobyte(env, encode, size);
+		}
+		liq_attr_destroy(liq);
 	}
-	liq_attr_destroy(liq);
-	free(out);
+	return outbytes;
+}
+JNIEXPORT jbyteArray JNICALL Java_org_pngquant_shortEn(JNIEnv *env, jclass obj, jshortArray src, jlong attr, jint w, jint h, jfloat jfloyd)
+{
+	jbyteArray outbytes = NULL;
+	liq_attr *liq = (liq_attr *)attr;
+	if (liq)
+	{
+		jshort *in = (*env)->GetPrimitiveArrayCritical(env, src, 0);
+		if (in)
+		{
+			unsigned char *rgba = rgb565_rgba(w * h, (unsigned short *)in);
+			(*env)->ReleasePrimitiveArrayCritical(env, src, in, JNI_ABORT);
+			if (rgba)
+			{
+				outbytes = liq_opt(env, rgba, liq, w, h, jfloyd, 565);
+				free(rgba);
+			}
+		}
+		liq_attr_destroy(liq);
+	}
 	return outbytes;
 }
 JNIEXPORT jboolean JNICALL Java_org_pngquant_file(JNIEnv *env, jclass obj, jstring jInFilename, jstring jOutFilename, jlong attr, jfloat jfloyd)
 {
-	const char *inFilename = (*env)->GetStringUTFChars(env, jInFilename, 0);
 	liq_attr *liq = (liq_attr *)attr;
 	bool rest = false;
-	if (inFilename)
+	if (liq)
 	{
-		unsigned int width, height;
-		void *raw_rgba_pixels = spng_decode(inFilename, &width, &height);
-		if (raw_rgba_pixels)
+		const char *inFilename = (*env)->GetStringUTFChars(env, jInFilename, 0);
+		if (inFilename)
 		{
-			liq_image *input_image = liq_image_create_rgba(liq, raw_rgba_pixels, width, height, 0);
-			size_t size;
-			const char *outFilename = (*env)->GetStringUTFChars(env, jOutFilename, 0);
-			if (outFilename)
+			unsigned int width, height;
+			void *raw_rgba_pixels = spng_decode(inFilename, &width, &height);
+			if (raw_rgba_pixels)
 			{
-				FILE *fp = fopen(outFilename, "wb");
-				if (fp)
+				liq_image *input_image = liq_image_create_rgba(liq, raw_rgba_pixels, width, height, 0);
+				size_t size;
+				const char *outFilename = (*env)->GetStringUTFChars(env, jOutFilename, 0);
+				if (outFilename)
 				{
-					if (liq_opt_encode(&size, fp, input_image, liq, width, height, jfloyd, 8888))
-						rest = true;
-					else
-						remove(outFilename);
+					FILE *fp = fopen(outFilename, "wb");
+					if (fp)
+					{
+						if (liq_opt_encode(&size, fp, input_image, liq, width, height, jfloyd, 8888))
+							rest = true;
+						else
+							remove(outFilename);
+					}
+					(*env)->ReleaseStringUTFChars(env, jOutFilename, outFilename);
 				}
-				(*env)->ReleaseStringUTFChars(env, jOutFilename, outFilename);
 			}
+			free(raw_rgba_pixels);
+			(*env)->ReleaseStringUTFChars(env, jInFilename, inFilename);
 		}
-		free(raw_rgba_pixels);
-		(*env)->ReleaseStringUTFChars(env, jInFilename, inFilename);
+		liq_attr_destroy(liq);
 	}
-	liq_attr_destroy(liq);
 	return rest;
 }
