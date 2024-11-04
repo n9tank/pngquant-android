@@ -14,8 +14,7 @@ JNIEXPORT jbyteArray JNICALL   Java_org_bitmapquant_en(JNIEnv * env, jclass obj,
     	if(info.format==ANDROID_BITMAP_FORMAT_RGBA_8888){
     	void* pixels;
     	if(!AndroidBitmap_lockPixels(env,bitmap,&pixels)){
-    		liq_out_attr outattr={info.width,info.height,jfloyd};
-    		outbytes=liq_opt(env,(unsigned char*)pixels,liq,&outattr,color);
+    		outbytes=liq_opt(env,(unsigned char*)pixels,liq,info.width,info.height,jfloyd,color);
     		AndroidBitmap_unlockPixels(env,bitmap);
     	}
     	}
