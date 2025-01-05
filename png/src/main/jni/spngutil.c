@@ -14,6 +14,7 @@ void *spng_encode(size_t *size, FILE *fp, unsigned char *buff, const liq_palette
 		spng_set_png_file(ctx, fp);
 	struct spng_ihdr ihdr = {w, h, 8, SPNG_COLOR_TYPE_INDEXED, 0, 0, 0};
 	spng_set_ihdr(ctx, &ihdr);
+	unsigned int page = w * h;
 	if (color > 888)
 	{
 		struct spng_plte ple;
@@ -56,7 +57,7 @@ void *spng_encode(size_t *size, FILE *fp, unsigned char *buff, const liq_palette
 			spng_set_trns(ctx, &trns);
 		if (bool)
 		{
-			for (unsigned int i = 0, num = w * h; i < num; i++)
+			for (unsigned int i = 0; i < page; i++)
 			{
 				buff[i] = map[buff[i]];
 			}
@@ -64,7 +65,7 @@ void *spng_encode(size_t *size, FILE *fp, unsigned char *buff, const liq_palette
 	}
 	else
 		spng_set_plte(ctx, (struct spng_plte *)pal);
-	if (spng_encode_image(ctx, buff, w * h, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE))
+	if (spng_encode_image(ctx, buff, page, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE))
 		goto gc;
 	if (!fp)
 	{
