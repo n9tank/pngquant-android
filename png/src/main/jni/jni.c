@@ -194,3 +194,26 @@ JNIEXPORT jboolean JNICALL Java_org_pngquant_file(JNIEnv *env, jclass obj, jstri
 	}
 	return rest;
 }
+#if defined(ANDROID) || defined(__ANDROID__)
+#include <android/bitmap.h>
+JNIEXPORT jbyteArray JNICALL Java_org_pngquant_en(JNIEnv *env, jclass obj, jobject bitmap, jlong attr, jint color, float jfloyd)
+{
+	AndroidBitmapInfo info;
+	jbyteArray outbytes = NULL;
+	liq_attr *liq = (liq_attr *)attr;
+	if (!AndroidBitmap_getInfo(env, bitmap, &info))
+	{
+		if (info.format == ANDROID_BITMAP_FORMAT_RGBA_8888)
+		{
+			void *pixels;
+			if (!AndroidBitmap_lockPixels(env, bitmap, &pixels))
+			{
+				outbytes = liq_opt(env, (unsigned char *)pixels, liq, info.width, info.height, jfloyd, color);
+				AndroidBitmap_unlockPixels(env, bitmap);
+			}
+		}
+	}
+	liq_attr_destroy(liq);
+	return outbytes;
+}
+#endif

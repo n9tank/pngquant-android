@@ -3,11 +3,16 @@ project(pngquant)
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g -rdynamic -no-pie")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -ffunction-sections -fdata-sections")
-set(CMAKE_EXE_LINKER_FLAGS    "${CMAKE_EXE_LINKER_FLAGS}    -Wl,--gc-sections,--as-needed")
-set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,--gc-sections,--as-needed")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections,--as-needed")
-
+add_compile_options(
+  -ffunction-sections
+  -fdata-sections
+  -fvisibility=hidden
+)
+add_link_options(
+  -fuse-ld=lld
+  -Wl,--gc-sections
+  -Wl,--strip-all
+)
 
 option(ZLIB_NG "zlib_ng" OFF)
 option(ZLIB_NGS "zlib_ng_static" OFF)
@@ -53,23 +58,22 @@ endif()
 
 
 if(CMAKE_SYSTEM_NAME MATCHES "Android")
-list(APPEND SRC
-android_jni.c
-)
-list(APPEND LIB
-${log-lib}
-jnigraphics
-)
-find_library(log-lib log)
+list(APPEND LIB jnigraphics)
 find_library(jnigraphics-lib jnigraphics)
 endif()
-
 
 add_library(pngquant SHARED
     ${SRC}
 )
 
+target_link_options(pngquant PUBLIC
+  -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/export.map
+)
 
 target_link_libraries(pngquant
-${LIB}
+  PUBLIC
+  -Wl,--start-group
+  ${LIB}
+  -Wl,--end-group
+  -Wl,--exclude-libs=ALL
 )

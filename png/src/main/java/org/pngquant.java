@@ -1,5 +1,5 @@
 package org;
-import java.util.Arrays;
+import android.graphics.Bitmap;
 
 
 public class pngquant {
@@ -10,6 +10,7 @@ public class pngquant {
  public static final int RGB_888=888;
  //该模式因为Android不支持，为平台统一请使用shortEn（RGB_565)
  public static final int ARGB=8888;
+ public static native byte[] en(Bitmap map, long attr,int color, float jfloyd);
  public static native long attr(int jMinQuality, int jMaxQuality, int jSpeed);
  public static native byte[] intEn(int src[], long attr, int w, int h, float fd, int color, boolean nosawp);
  public static native byte[] shortEn(short src[], long attr, int w, int h, float fd);
