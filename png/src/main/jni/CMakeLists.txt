@@ -53,14 +53,7 @@ endif()
 
 
 if(CMAKE_SYSTEM_NAME MATCHES "Android")
-list(APPEND SRC
-android_jni.c
-)
-list(APPEND LIB
-${log-lib}
-jnigraphics
-)
-find_library(log-lib log)
+list(APPEND LIB jnigraphics)
 find_library(jnigraphics-lib jnigraphics)
 endif()
 
