@@ -7,6 +7,7 @@
 static void argb_rgba(unsigned int page, unsigned int *data, unsigned int *drc)
 {
 	unsigned int index;
+#pragma omp simd
 	for (index = 0; index < page; index++)
 	{
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -24,6 +25,7 @@ static unsigned char *rgb565_rgba(unsigned int page, unsigned short *data)
 	unsigned int *rgba = malloc(page << 2);
 	if (rgba == NULL)
 		return NULL;
+#pragma omp simd
 	for (unsigned int index = 0; index < page; index++)
 	{
 		uint16_t rgb565 = data[index];
@@ -194,3 +196,26 @@ JNIEXPORT jboolean JNICALL Java_org_pngquant_file(JNIEnv *env, jclass obj, jstri
 	}
 	return rest;
 }
+#if defined(ANDROID) || defined(__ANDROID__)
+#include <android/bitmap.h>
+JNIEXPORT jbyteArray JNICALL Java_org_pngquant_en(JNIEnv *env, jclass obj, jobject bitmap, jlong attr, jint color, float jfloyd)
+{
+	AndroidBitmapInfo info;
+	jbyteArray outbytes = NULL;
+	liq_attr *liq = (liq_attr *)attr;
+	if (!AndroidBitmap_getInfo(env, bitmap, &info))
+	{
+		if (info.format == ANDROID_BITMAP_FORMAT_RGBA_8888)
+		{
+			void *pixels;
+			if (!AndroidBitmap_lockPixels(env, bitmap, &pixels))
+			{
+				outbytes = liq_opt(env, (unsigned char *)pixels, liq, info.width, info.height, jfloyd, color);
+				AndroidBitmap_unlockPixels(env, bitmap);
+			}
+		}
+	}
+	liq_attr_destroy(liq);
+	return outbytes;
+}
+#endif
