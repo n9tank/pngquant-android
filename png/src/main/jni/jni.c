@@ -51,30 +51,42 @@ JNIEXPORT jlong JNICALL Java_org_pngquant_attr(JNIEnv *env, jclass obj, jint jMi
 	liq_set_speed(liq, jSpeed);
 	return (jlong)liq;
 }
-static void *liq_opt_encode(size_t *size, FILE *fp, liq_image *input_image, liq_attr *liq, unsigned int w, unsigned int h, float jfloyd, unsigned int color)
+static liq_result *liq_opt_quant(liq_image *input_image, liq_attr *liq, unsigned int pixels_size, float jfloyd, void **raw_8bit_pixels)
 {
 	liq_result *quantization_result = NULL;
-	void *buf = NULL;
 	if (liq_image_quantize(input_image, liq, &quantization_result) == LIQ_OK)
 	{
 		liq_set_output_gamma(quantization_result, 0.45455);
 		liq_set_dithering_level(quantization_result, jfloyd);
-		size_t pixels_size = w * h;
-		unsigned char *raw_8bit_pixels = malloc(pixels_size);
+		*raw_8bit_pixels = malloc(pixels_size);
 		if (raw_8bit_pixels)
 		{
 			liq_write_remapped_image(quantization_result, input_image, raw_8bit_pixels, pixels_size);
-			const liq_palette *palette = liq_get_palette(quantization_result);
-			buf = spng_encode(size, fp, raw_8bit_pixels, palette, w, h, color);
-			free(raw_8bit_pixels);
 		}
+	}
+	liq_image_destroy(input_image);
+	return quantization_result;
+}
+static void *liq_img_encode(size_t *size, FILE *fp, void *raw_8bit_pixels, liq_result *quantization_result, unsigned int w, unsigned int h, unsigned int color)
+{
+	void *buf = NULL;
+	if (raw_8bit_pixels)
+	{
+		const liq_palette *palette = liq_get_palette(quantization_result);
+		buf = spng_encode(size, fp, raw_8bit_pixels, palette, w, h, color);
+		free(raw_8bit_pixels);
 	}
 	if (quantization_result)
 	{
 		liq_result_destroy(quantization_result);
 	}
-	liq_image_destroy(input_image);
 	return buf;
+}
+static void *liq_opt_encode(size_t *size, FILE *fp, liq_image *input_image, liq_attr *liq, unsigned int w, unsigned int h, float jfloyd, unsigned int color)
+{
+	void *raw_8bit_pixels = NULL;
+	liq_result *quantization_result = liq_opt_quant(input_image, liq, w * h, jfloyd, &raw_8bit_pixels);
+	return liq_img_encode(size, fp, raw_8bit_pixels, quantization_result, w, h, color);
 }
 jbyteArray tobyte(JNIEnv *env, void *encode, int jsize)
 {
@@ -120,19 +132,26 @@ JNIEXPORT jbyteArray JNICALL Java_org_pngquant_intEn(JNIEnv *env, jclass obj, ji
 				byte = in;
 			void *encode = NULL;
 			size_t size = 0;
+			liq_image *img = NULL;
+			liq_result *quantization_result = NULL;
+			void *raw_8bit_pixels = NULL;
 			if (byte)
 			{
 				argb_rgba(page, (unsigned int *)in, (unsigned int *)byte);
 				if (iscopy)
 					(*env)->ReleasePrimitiveArrayCritical(env, src, in, JNI_ABORT);
-				liq_image *img = liq_image_create_rgba(liq, byte, w, h, 0);
+				img = liq_image_create_rgba(liq, byte, w, h, 0);
 				if (img)
-					encode = liq_opt_encode(&size, NULL, img, liq, w, h, jfloyd, color);
+				{
+					quantization_result = liq_opt_quant(img, liq, w * h, jfloyd, &raw_8bit_pixels);
+				}
 			}
 			if (iscopy && byte)
 				free(byte);
 			else
 				(*env)->ReleasePrimitiveArrayCritical(env, src, in, JNI_ABORT);
+			if (img)
+				encode = liq_img_encode(&size, NULL, raw_8bit_pixels, quantization_result, w, h, color);
 			outbytes = tobyte(env, encode, size);
 		}
 		liq_attr_destroy(liq);
